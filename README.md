@@ -97,6 +97,106 @@ roxiller/
 
 ---
 
+## 🗄️ Database Schema & Data Models
+
+The database is built on **MySQL** and managed via **Prisma ORM**. It consists of three core relational models (`User`, `Store`, and `Rating`) with relational integrity, composite constraints, and indexing.
+
+### Entity Relationship Diagram (ERD)
+
+```mermaid
+erDiagram
+    User ||--o{ Store : "owns (1:N)"
+    User ||--o{ Rating : "submits (1:N)"
+    Store ||--o{ Rating : "receives (1:N)"
+
+    User {
+        int id PK "Auto Increment"
+        string name "VarChar(60)"
+        string email UK "VarChar(255), Unique"
+        string password "VarChar(255) [bcrypt hash]"
+        string address "VarChar(400), Nullable"
+        string profilePhoto "VarChar(255), Nullable"
+        enum role "ADMIN | USER | STORE_OWNER"
+        datetime createdAt "Default now()"
+        datetime updatedAt "Auto updated"
+    }
+
+    Store {
+        int id PK "Auto Increment"
+        string name "VarChar(100)"
+        string email "VarChar(255)"
+        string address "VarChar(400)"
+        string imageUrl "VarChar(255), Nullable"
+        string category "VarChar(50), Default 'General'"
+        string tags "VarChar(255), Nullable"
+        enum status "PENDING | APPROVED | REJECTED"
+        int ownerId FK "References users(id)"
+        datetime createdAt "Default now()"
+        datetime updatedAt "Auto updated"
+    }
+
+    Rating {
+        int id PK "Auto Increment"
+        int rating "1 to 5"
+        int userId FK "References users(id)"
+        int storeId FK "References stores(id)"
+        datetime createdAt "Default now()"
+        datetime updatedAt "Auto updated"
+    }
+```
+
+### Table Specifications
+
+#### 1. `users` Table
+Stores authenticated account credentials, profile details, and role access permissions.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `INT` | `PRIMARY KEY`, `AUTO_INCREMENT` | Unique identifier for user |
+| `name` | `VARCHAR(60)` | `NOT NULL` | Full name of user (20-60 chars) |
+| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE` | Login email address |
+| `password` | `VARCHAR(255)` | `NOT NULL` | Bcrypt-hashed password string |
+| `address` | `VARCHAR(400)` | `NULL` | Optional residential / business address |
+| `profilePhoto`| `VARCHAR(255)` | `NULL` | Relative path to uploaded avatar image |
+| `role` | `ENUM` | `DEFAULT 'USER'` | `ADMIN`, `USER`, or `STORE_OWNER` |
+| `createdAt` | `DATETIME(3)` | `DEFAULT CURRENT_TIMESTAMP(3)` | Account creation timestamp |
+| `updatedAt` | `DATETIME(3)` | `ON UPDATE CURRENT_TIMESTAMP(3)` | Last modification timestamp |
+
+#### 2. `stores` Table
+Stores registered retail locations, categorization, moderation status, and storefront imagery.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `INT` | `PRIMARY KEY`, `AUTO_INCREMENT` | Unique identifier for store |
+| `name` | `VARCHAR(100)` | `NOT NULL` | Public store name |
+| `email` | `VARCHAR(255)` | `NOT NULL` | Business contact email |
+| `address` | `VARCHAR(400)` | `NOT NULL` | Physical store address |
+| `imageUrl` | `VARCHAR(255)` | `NULL` | Relative path to storefront photo (`/uploads/stores/...`)|
+| `category` | `VARCHAR(50)` | `DEFAULT 'General'`, `INDEX` | Store category (Cafe, Electronics, Grocery, etc.) |
+| `tags` | `VARCHAR(255)` | `NULL`, `INDEX` | Comma-delimited search keywords |
+| `status` | `ENUM` | `DEFAULT 'PENDING'` | Moderation state: `PENDING`, `APPROVED`, `REJECTED` |
+| `ownerId` | `INT` | `FOREIGN KEY` (`users.id`), `INDEX` | Store owner user ID (Cascades on delete) |
+| `createdAt` | `DATETIME(3)` | `DEFAULT CURRENT_TIMESTAMP(3)` | Creation timestamp |
+| `updatedAt` | `DATETIME(3)` | `ON UPDATE CURRENT_TIMESTAMP(3)` | Last modification timestamp |
+
+- **Composite Unique Key**: `@@unique([ownerId, name, address])` prevents an owner from duplicating the same location.
+
+#### 3. `ratings` Table
+Stores customer review scores (1 to 5 stars) linked to users and stores.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `INT` | `PRIMARY KEY`, `AUTO_INCREMENT` | Unique rating identifier |
+| `rating` | `INT` | `NOT NULL` | Star score value between `1` and `5` |
+| `userId` | `INT` | `FOREIGN KEY` (`users.id`), `INDEX` | Customer ID (Cascades on delete) |
+| `storeId` | `INT` | `FOREIGN KEY` (`stores.id`), `INDEX` | Rated store ID (Cascades on delete) |
+| `createdAt` | `DATETIME(3)` | `DEFAULT CURRENT_TIMESTAMP(3)` | Rating submission timestamp |
+| `updatedAt` | `DATETIME(3)` | `ON UPDATE CURRENT_TIMESTAMP(3)` | Rating adjustment timestamp |
+
+- **Composite Unique Key**: `@@unique([userId, storeId])` guarantees one rating per customer per store. Subsequent submissions update the existing score.
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
